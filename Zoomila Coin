@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>ZoomilaCoin 💰</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #111;
+      color: #fff;
+      padding: 10px;
+    }
+    input, button {
+      padding: 10px;
+      margin: 5px 0;
+      width: 100%;
+      border-radius: 10px;
+      border: none;
+      font-size: 16px;
+    }
+    button {
+      background: #00bcd4;
+      color: white;
+      font-weight: bold;
+      border: 2px solid white;
+      transition: all 0.3s ease;
+    }
+    button:hover {
+      background: #0097a7;
+      transform: scale(1.03);
+    }
+    .hidden { display: none; }
+    .tx, .block {
+      border: 1px solid #555;
+      padding: 5px;
+      margin: 5px 0;
+      border-radius: 5px;
+      background: #222;
+    }
+  </style>
+</head>
+<body>
+  <h2>ZoomilaCoin 💰</h2>
+
+  <div id="auth">
+    <input id="username" placeholder="Username">
+    <input id="password" type="password" placeholder="Password">
+    <button onclick="signup()">Sign Up</button>
+    <button onclick="login()">Login</button>
+  </div>
+
+  <div id="app" class="hidden">
+    <p>Welcome <span id="user"></span> | Coins: <span id="coins"></span></p>
+    <p>Total Supply: <span id="supply"></span> / 11000000 ZMC</p>
+    <input id="receiver" placeholder="Receiver username">
+    <input id="amount" type="number" placeholder="Amount">
+    <button onclick="sendCoin()">Send Coin</button>
+
+    <h3>Mine Coin 🪙</h3>
+    <p id="question"></p>
+    <input id="answer" placeholder="Your answer">
+    <button onclick="submitAnswer()">Submit Answer</button>
+    <p id="mine-status"></p>
+
+    <h3>Transaction History</h3>
+    <div id="txs"></div>
+
+    <h3>Blockchain Explorer</h3>
+    <div id="chain"></div>
+
+    <h3>Leaderboard</h3>
+    <div id="leaderboard"></div>
+
+    <button onclick="logout()">Logout</button>
+  </div>
+
+  <script>
+    let currentUser = null;
+    let a, b;
+    const MAX_SUPPLY = 11000000;
+    const BURN_PERCENTAGE = 0.01;
+    const HALVING_PERIOD_YEARS = 4;
+    const START_YEAR = 2025;
+
+    function getMiningReward() {
+      const currentYear = new Date().getFullYear();
+      const elapsed = currentYear - START_YEAR;
+      let halvings = Math.floor(elapsed / HALVING_PERIOD_YEARS);
+      return Math.max(1, 10 >> halvings);
+    }
+
+    function generatePublicName() {
+      const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+      let name;
+      do {
+        name = 'ZMC' + Array.from({ length: 8 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+      } while (Object.values(localStorage).some(d => {
+        try {
+          const obj = JSON.parse(d);
+          return obj.publicName === name;
+        } catch { return false; }
+      }));
+      return name;
+    }
+
+    function signup() {
+      const u = document.getElementById('username').value;
+      const p = document.getElementById('password').value;
+      if (localStorage.getItem('z_' + u)) return alert('User exists');
+
+      const publicName = generatePublicName();
+      const userData = {
+        password: p,
+        balance: 10,
+        transactions: ["Airdrop 10ZMC"],
+        publicName: publicName
+      };
+      localStorage.setItem('z_' + u, JSON.stringify(userData));
+      alert(`Signed up! Your Public Name is: ${publicName}\nNow login.`);
+    }
+
+    function login() {
+      const u = document.getElementById('username').value;
+      const p = document.getElementById('password').value;
+      const data = JSON.parse(localStorage.getItem('z_' + u));
+      if (!data || data.password !== p) return alert('Wrong login');
+      currentUser = u;
+      document.getElementById('auth').classList.add('hidden');
+      document.getElementById('app').classList.remove('hidden');
+      generateQuestion();
+      updateUI();
+    }
+
+    function logout() {
+      currentUser = null;
+      document.getElementById('auth').classList.remove('hidden');
+      document.getElementById('app').classList.add('hidden');
+    }
+
+    function sendCoin() {
+      const to = document.getElementById('receiver').value;
+      const amt = +document.getElementById('amount').value;
+      const sender = JSON.parse(localStorage.getItem('z_' + currentUser));
+      if (!localStorage.getItem('z_' + to)) return alert('No user');
+      if (sender.balance < amt) return alert('Low balance');
+
+      const receiver = JSON.parse(localStorage.getItem('z_' + to));
+      const burn = Math.floor(amt * BURN_PERCENTAGE);
+      const sendAmt = amt - burn;
+
+      sender.balance -= amt;
+      receiver.balance += sendAmt;
+
+      sender.transactions.push(`Sent ${sendAmt} ZMC to ${to} (🔥 Burned ${burn})`);
+      receiver.transactions.push(`Received ${sendAmt} ZMC from ${currentUser}`);
+
+      localStorage.setItem('z_' + currentUser, JSON.stringify(sender));
+      localStorage.setItem('z_' + to, JSON.stringify(receiver));
+      updateUI();
+    }
+
+    function generateQuestion() {
+      a = Math.floor(Math.random() * 50);
+      b = Math.floor(Math.random() * 50);
+      document.getElementById('question').innerText = `What is ${a} + ${b}?`;
+    }
+
+    function submitAnswer() {
+      const ans = +document.getElementById('answer').value;
+      if (ans !== a + b) return alert('Wrong answer');
+
+      const reward = getMiningReward();
+      if (getTotalSupply() + reward > MAX_SUPPLY) return alert('Max supply reached!');
+
+      const user = JSON.parse(localStorage.getItem('z_' + currentUser));
+      user.balance += reward;
+      const tx = `Mined ${reward} ZMC by answering ${a}+${b}`;
+      user.transactions.push(tx);
+      localStorage.setItem('z_' + currentUser, JSON.stringify(user));
+
+      const chain = JSON.parse(localStorage.getItem('chain') || '[]');
+      chain.push({ id: chain.length + 1, data: tx });
+      localStorage.setItem('chain', JSON.stringify(chain));
+
+      document.getElementById('mine-status').innerText = `✅ Mined ${reward} ZMC!`;
+      generateQuestion();
+      updateUI();
+    }
+
+    function getTotalSupply() {
+      let allUsers = Object.keys(localStorage).filter(k => k.startsWith('z_'));
+      return allUsers.reduce((sum, u) => {
+        let data = JSON.parse(localStorage.getItem(u));
+        return sum + data.balance;
+      }, 0);
+    }
+
+    function updateUI() {
+      const user = JSON.parse(localStorage.getItem('z_' + currentUser));
+      document.getElementById('user').innerText = user.publicName || currentUser;
+      document.getElementById('coins').innerText = user.balance;
+      document.getElementById('supply').innerText = getTotalSupply();
+
+      const txDiv = document.getElementById('txs');
+      txDiv.innerHTML = user.transactions.map(t => `<div class='tx'>${t}</div>`).join('');
+
+      const chain = JSON.parse(localStorage.getItem('chain') || '[]');
+      document.getElementById('chain').innerHTML = chain.map(b => `<div class='block'>🔗 Block ${b.id}<br>${b.data}</div>`).join('');
+
+      let allUsers = Object.keys(localStorage).filter(k => k.startsWith('z_'));
+      let leaderboard = allUsers.map(u => {
+        let data = JSON.parse(localStorage.getItem(u));
+        let mined = data.transactions.filter(x => x.includes('Mined')).length;
+        return {
+          name: data.publicName || u.slice(2),
+          balance: data.balance,
+          mined
+        };
+      });
+      leaderboard.sort((a, b) => b.mined - a.mined);
+      document.getElementById('leaderboard').innerHTML = leaderboard.map((x, i) =>
+        `<div class='tx'>#${i + 1} ${x.name} - 💰 ${x.balance} - ⛏️ ${x.mined}</div>`
+      ).join('');
+    }
+  </script>
+</body>
+</html>
+
+
+cryptocurrency, blockchain, digital-currency, mining, reward-system, coin, zoomila, crypto, webapp, gamification, tokenomics
