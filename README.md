@@ -11,6 +11,7 @@ Welcome to **ZoomilaCoin**, an experimental, community-driven digital coin desig
 - 🌐 Official Website: *Coming Soon*
 - 🧠 AI/Tech Channel: [YouTube - Zoomila](https://youtube.com/@Zoomila)
 
+telegram channel link for app download:- https://t.me/+IZmsPxMhqhljNzQ1
 ---
 
 ## 💡 What is ZoomilaCoin?
